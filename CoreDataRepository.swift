@@ -87,9 +87,8 @@ class Repository<RepoRawData, RepoDomainExpectedModel>: NSObject, AccessableRepo
       
    func delete(by search: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void)) {}
    func get(by search: RepositorySearchRequest, completion: @escaping ((Result<[RepoDomainExpectedModel]>) -> Void)) {}
+   func eraseAllData(completion: @escaping ((Result<Void>) -> Void)) {}
 }
-
-
 
 //MARK:- CoreData repository
 
@@ -141,7 +140,7 @@ struct AllSearchRequest: RepositorySearchRequest {
 
 enum DBRepositoryErrors: Error {
    case entityTypeError
-   case noChangesInBase
+   case noChangesInRepository
 }
 //extension DBRepositoryErrors: LocalizedError {
 //
@@ -171,7 +170,7 @@ final class DBRepository<DBRepoRawData, DBRepoExpectedModel, DBRepoEntity: NSMan
          completion?(Result(value: ()))
       case false:
          ConsoleLog.logEvent(object: "DBRepository \(DBRepoEntity.self)", method: "saveIn", "No changes in context")
-         completion?(Result(error: DBRepositoryErrors.noChangesInBase))
+         completion?(Result(error: DBRepositoryErrors.noChangesInRepository))
       }
    }
    
@@ -299,7 +298,30 @@ final class DBRepository<DBRepoRawData, DBRepoExpectedModel, DBRepoEntity: NSMan
          self.saveIn(context: context, completion: completion)
       }
    }
-   
+   override func eraseAllData(completion: @escaping ((Result<Void>) -> Void)) {
+      let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: associatedEntityName)
+      let batchDeleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+      batchDeleteRequest.resultType = .resultTypeObjectIDs
+      contextSource.performBackgroundTask({ context in
+         do {
+             let result = try context.execute(batchDeleteRequest)
+             guard let deleteResult = result as? NSBatchDeleteResult,
+                 let ids = deleteResult.result as? [NSManagedObjectID]
+             else { return   completion(Result.error(DBRepositoryErrors.noChangesInRepository)) }
+
+             let changes = [NSDeletedObjectsKey: ids]
+             NSManagedObjectContext.mergeChanges(
+                 fromRemoteContextSave: changes,
+               into: [self.contextSource.mainQueueContext()]
+             )
+            return completion(Result(value: ()))
+         } catch {
+            ConsoleLog.logEvent(object: "DBRepository \(DBRepoEntity.self)", method: "eraseAllData", "Error: \(error)")
+            completion(Result.error(error))
+         }
+      })
+   }
+
    //MARK: - NSFetchedResultsControllerDelegate implementation
    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
       guard let fetchedObjects = controller.fetchedObjects as? [DBRepoEntity] else { return }
