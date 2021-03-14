@@ -78,16 +78,32 @@ class Repository<RepoRawData, RepoDomainExpectedModel>: NSObject, AccessableRepo
    typealias RawDataForUpdate = RepoRawData
    typealias ExpectedModel = RepoDomainExpectedModel
    
-   var actualSearchedData: Observable<[RepoDomainExpectedModel]>? { nil }
+   var actualSearchedData: Observable<[RepoDomainExpectedModel]>? {
+      fatalError("actualSearchedData must be overrided")
+   }
    
-   func save(_ rawData: [RepoRawData], completion: @escaping ((Result<Void>) -> Void)) {}
-   func save(_ objects: [RepoDomainExpectedModel], completion: @escaping ((Result<Void>) -> Void)) {}
-   func save(_ rawData: [RawDataForUpdate], clearBeforeSaving: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void)) {}
-   func save(_ objects: [ExpectedModel], clearBeforeSaving: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void)) {}
+   func save(_ rawData: [RepoRawData], completion: @escaping ((Result<Void>) -> Void)) {
+      fatalError("save(_ rawData:) must be overrided")
+   }
+   func save(_ objects: [RepoDomainExpectedModel], completion: @escaping ((Result<Void>) -> Void)) {
+      fatalError("save(_ objects:) must be overrided")
+   }
+   func save(_ rawData: [RepoRawData], clearBeforeSaving: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void)) {
+      fatalError("save(_ rawData:) must be overrided")
+   }
+   func save(_ objects: [RepoDomainExpectedModel], clearBeforeSaving: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void)) {
+      fatalError("save(_ objects:) must be overrided")
+   }
       
-   func delete(by search: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void)) {}
-   func get(by search: RepositorySearchRequest, completion: @escaping ((Result<[RepoDomainExpectedModel]>) -> Void)) {}
-   func eraseAllData(completion: @escaping ((Result<Void>) -> Void)) {}
+   func delete(by search: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void)) {
+      fatalError("delete(by search:) must be overrided")
+   }
+   func get(by search: RepositorySearchRequest, completion: @escaping ((Result<[RepoDomainExpectedModel]>) -> Void)) {
+      fatalError("get(by search:) must be overrided")
+   }
+   func eraseAllData(completion: @escaping ((Result<Void>) -> Void)) {
+      fatalError("eraseAllData() must be overrided")
+   }
 }
 
 //MARK:- CoreData repository
@@ -102,13 +118,25 @@ class Repository<RepoRawData, RepoDomainExpectedModel>: NSObject, AccessableRepo
 //   func transformSelfToModel() -> ExpectedModel?
 //}
 
-class EntityConverter<RawDataForUpdate, ExpectedModel, Entity> {
-   func update(entity: Entity, rawData: RawDataForUpdate) {}
-   func update(entity: Entity,_ model: ExpectedModel) {}
-   func transform(entity: Entity) -> ExpectedModel? { return nil }
-   func getEntityAccessor(for model: ExpectedModel) -> String? { return nil }
-   func getEntityAccessor(for rawData: RawDataForUpdate) -> String? { return nil }
-   func getEntityAccessor(for entity: Entity) -> String? { return nil }
+class DBEntityConverter<RawDataForUpdate, ExpectedModel, Entity> {
+   func update(entity: Entity, rawData: RawDataForUpdate) {
+      fatalError("update(entity:) must be overrided")
+   }
+   func update(entity: Entity,_ model: ExpectedModel) {
+      fatalError("update(entity:) must be overrided")
+   }
+   func convert(entity: Entity) -> ExpectedModel? {
+      fatalError("transform(entity:) must be overrided")
+   }
+   func getEntityAccessor(for model: ExpectedModel) -> String? {
+      fatalError("getEntityAccessor(for model:) must be overrided")
+   }
+   func getEntityAccessor(for rawData: RawDataForUpdate) -> String? {
+      fatalError("getEntityAccessor(for rawData:) must be overrided")
+   }
+   func getEntityAccessor(for entity: Entity) -> String? {
+      fatalError("getEntityAccessor(for entity:) must be overrided")
+   }
 }
 
 //MARK: The way of fixing protocol error for generic types for EntityConvertation
@@ -184,6 +212,10 @@ final class DBRepository<DBRepoRawData, DBRepoExpectedModel, DBRepoEntity: NSMan
                                                                 managedObjectContext: contextSource.mainQueueContext(), sectionNameKeyPath: nil,
                                                                     cacheName: nil)
       fetchedResultsController.delegate = self
+      try? fetchedResultsController.performFetch()
+      if let content = fetchedResultsController.fetchedObjects as? [DBRepoEntity] {
+         updateObservableContent(content)
+      }
       
       return fetchedResultsController
 
@@ -323,9 +355,13 @@ final class DBRepository<DBRepoRawData, DBRepoExpectedModel, DBRepoEntity: NSMan
    }
 
    //MARK: - NSFetchedResultsControllerDelegate implementation
-   func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+  func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
       guard let fetchedObjects = controller.fetchedObjects as? [DBRepoEntity] else { return }
-      let transformed = fetchedObjects.compactMap({ return self.entityConverter.transform(entity: $0) })
+      updateObservableContent(fetchedObjects)
+   }
+   
+   func updateObservableContent(_ content: [DBRepoEntity]) {
+      let transformed = content.compactMap({ return self.entityConverter.convert(entity: $0) })
       searchedData?.value = transformed
    }
 }
