@@ -9,16 +9,22 @@ import Foundation
 
 //MARK:- Repository protocol
 protocol AccessableRepository {
+   //1
    associatedtype DomainModel
-   
+   //2
    var actualSearchedData: Observable<[DomainModel]>? {get}
    
+   //3
    func save(_ objects: [DomainModel], completion: @escaping ((Result<Void>) -> Void))
+   //4
    func save(_ objects: [DomainModel], clearBeforeSaving: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void))
    
+   //5
    func present(by request: RepositorySearchRequest, completion: @escaping ((Result<[DomainModel]>) -> Void))
    
+   //6
    func delete(by request: RepositorySearchRequest, completion: @escaping ((Result<Void>) -> Void))
+   //7
    func eraseAllData(completion: @escaping ((Result<Void>) -> Void))
 }
 
@@ -26,7 +32,9 @@ protocol RepositorySearchRequest {
    /* NSPredicate = nil,  apply for all records
     for deletion sortDescriptor is not Used
     */
+   //1
    var predicate: NSPredicate? {get}
+   //2
    var sortDescriptors: [NSSortDescriptor] {get}
 }
 
@@ -54,12 +62,5 @@ class Repository<DomainModel>: NSObject, AccessableRepository {
    }
    func eraseAllData(completion: @escaping ((Result<Void>) -> Void)) {
       fatalError("eraseAllData(completion: must be overrided")
-   }
-}
-
-//MARK: - Entity Converter for Repository
-class EntityConverter<SourceObject, TargetObject> {
-   func convert(_ object: SourceObject) -> TargetObject? {
-      fatalError("convert(_ object:must be overrided")
    }
 }
